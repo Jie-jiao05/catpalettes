@@ -122,7 +122,7 @@ Available preview options:
 ### Step 4: Select a palette and assign category names
 
 ```r
-selected_row <- 1L  # <- Change to your preferred row in candidates.
+selected_row <- 1L  # <- Change to your preferred row in candidates, it will be the final palette for the visularion!!!.
 stopifnot(selected_row >= 1L, selected_row <= nrow(candidates))
 
 # OUR FUNCTION: retrieve colours and bind them to category names.
