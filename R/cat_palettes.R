@@ -1,1 +1,0 @@
-## Where the body of the categorizing color function goes 
