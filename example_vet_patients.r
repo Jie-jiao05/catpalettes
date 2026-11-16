@@ -91,3 +91,24 @@ print(
       panel.grid.major.x = element_blank()
     )
 )
+
+
+# ============================================================
+# PART C: BREEDS nested inside the species palette from Part A
+# Each species keeps its Part A colour family: nest_palette() reads the
+# hue and chroma of that colour, uses the closest existing single-hue
+# sequential palette, and generates shades only when none is close enough.
+# ============================================================
+
+nested_colours <- nest_palette(
+  parent = species_colours,                        # from Part A
+  categories = as.character(breed_counts$breed),
+  groups = as.character(breed_counts$species),
+  max_delta_e = 10  # <- Lower = stricter palette match, more generated shades.
+)
+
+# Which palette each species used (or "generated"), and how close it was.
+print(attr(nested_colours, "report"))
+
+print(plot_palette(nested_colours, views = c("original", "deutan")))
+print(assess_palette(nested_colours))
