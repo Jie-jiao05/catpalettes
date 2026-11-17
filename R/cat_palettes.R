@@ -1,5 +1,7 @@
 # catpalettes
-# Palette selection, comparison, and grouped colour assignment
+# Seven public functions for palette selection, preview, nesting and export.
+# find_palettes | select_palette | nest_palette | plot_palette
+# plot_palettes | assess_palette (optional) | export_palette
 # Save as "catpalettes.R" and load with source("catpalettes.R").
 # Install dependencies once:
 # install.packages(c("paletteer", "colorspace", "ggplot2"))
@@ -201,102 +203,29 @@ assess_palette <- function(
 
 # ---------- 3. Find candidate palettes ----------
 # Transparent colours are retained.
-# Optional screening assesses their appearance on the specified background.
+# Search uses colour count and optional palette type only; no separation screening.
 # Candidates are ordered by name, not ranked by quality.
 
-find_palettes <- function(
-    n, type = "qualitative", colourblind = FALSE, grayscale = FALSE,
-    threshold = 10, severity = 1, background = "#FFFFFF") {
+find_palettes <- function(n, type = NULL) {
   n <- .check_n(n)
-  threshold <- .check_threshold(threshold)
-  severity <- .check_severity(severity)
-  background <- .check_background(background)
-  for (flag in list(colourblind, grayscale)) {
-    if (!is.logical(flag) || length(flag) != 1L || is.na(flag)) {
-      stop("colourblind and grayscale must be TRUE or FALSE.", call. = FALSE)
-    }
-  }
-
   catalogue <- as.data.frame(paletteer::palettes_d_names)
-  for (column in c("package", "palette", "type")) {
-    catalogue[[column]] <- as.character(catalogue[[column]])
+  if (!is.null(type) && (!is.character(type) || length(type) != 1L ||
+      is.na(type) || !type %in% catalogue$type)) {
+    stop("Use a catalogue type (e.g. 'qualitative') or NULL.", call. = FALSE)
   }
-  if (!is.null(type)) {
-    if (!is.character(type) || length(type) != 1L || is.na(type) ||
-        !type %in% unique(catalogue$type)) {
-      stop("type must be qualitative, sequential, divergent, or NULL.", call. = FALSE)
-    }
-    catalogue <- catalogue[catalogue$type == type, ]
-  }
-  catalogue <- catalogue[catalogue$length >= n, ]
+  keep <- catalogue$length >= n
+  if (!is.null(type)) keep <- keep & catalogue$type == type
+  catalogue <- catalogue[keep, , drop = FALSE]
   result <- data.frame(
     palette_id = paste(catalogue$package, catalogue$palette, sep = "::"),
-    n_available = catalogue$length, type = catalogue$type,
-    n_selected = rep(n, nrow(catalogue)), stringsAsFactors = FALSE
+    n_available = catalogue$length,
+    type = as.character(catalogue$type),
+    n_selected = rep(n, nrow(catalogue)),
+    stringsAsFactors = FALSE
   )
-  result <- result[order(result$palette_id), ]
+  result <- result[order(result$palette_id), , drop = FALSE]
   rownames(result) <- NULL
-
-  required_views <- character()
-  if (colourblind) required_views <- c("deutan", "protan", "tritan")
-  if (grayscale) required_views <- c(required_views, "grayscale")
-  if (length(required_views) && n < 2L) {
-    stop("Pairwise separation screening requires at least two colours.", call. = FALSE)
-  }
-
-  result$has_transparency <- rep(NA, nrow(result))
-  if (length(required_views)) {
-    result$min_delta_e <- rep(NA_real_, nrow(result))
-    result$threshold <- rep(threshold, nrow(result))
-    result$screened_views <- rep(paste(required_views, collapse = ", "), nrow(result))
-    result$severity <- rep(severity, nrow(result))
-    result$background <- rep(background, nrow(result))
-  }
-  if (!nrow(result)) {
-    message("No palettes meet the colour-count and type requirements.")
-    return(result)
-  }
-
-  valid <- rep(TRUE, nrow(result))
-  keep <- rep(TRUE, nrow(result))
-  errors <- rep(NA_character_, nrow(result))
-  for (i in seq_len(nrow(result))) {
-    tryCatch({
-      colours <- select_palette(result$palette_id[i], n = n)
-      result$has_transparency[i] <- any(
-        grDevices::col2rgb(colours, alpha = TRUE)[4, ] < 255L
-      )
-      if (length(required_views)) {
-        assessment <- assess_palette(
-          colours, views = required_views, threshold = threshold,
-          severity = severity, background = background
-        )
-        keep[i] <- all(assessment$meets_threshold)
-        result$min_delta_e[i] <- min(assessment$min_delta_e)
-      }
-    }, error = function(e) {
-      valid[i] <<- FALSE
-      errors[i] <<- conditionMessage(e)
-    })
-  }
-
-  skipped <- data.frame(
-    palette_id = result$palette_id[!valid],
-    reason = errors[!valid], stringsAsFactors = FALSE
-  )
-  if (nrow(skipped)) {
-    warning(
-      nrow(skipped), " candidate(s) could not be processed. ",
-      "See attr(result, 'skipped') for details.",
-      call. = FALSE
-    )
-  }
-  result <- result[valid & keep, , drop = FALSE]
-  rownames(result) <- NULL
-  attr(result, "skipped") <- skipped
-  if (!nrow(result)) {
-    message("No palettes meet all requirements. Requirements were not relaxed.")
-  }
+  if (!nrow(result)) message("No discrete palettes contain enough colours.")
   result
 }
 
@@ -305,7 +234,7 @@ find_palettes <- function(
 # Defaults to the first 12 palettes; increase max_palettes to show more.
 
 plot_palettes <- function(
-    palettes, n = NULL, views = "original", severity = 1,
+    palettes, n = NULL, views = c("original", "grayscale"), severity = 1,
     max_palettes = 12, background = "#FFFFFF") {
   max_palettes <- .check_n(max_palettes)
   views <- .check_views(views)
@@ -377,7 +306,7 @@ plot_palettes <- function(
       data = backgrounds, ggplot2::aes(fill = colour),
       xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, inherit.aes = FALSE
     ) +
-    ggplot2::geom_tile(width = 0.94, height = 0.72) +
+    ggplot2::geom_tile(width = 0.94, height = 0.72, colour = "#888888", linewidth = 0.2) +
     ggplot2::scale_fill_identity() +
     ggplot2::facet_wrap(~view, ncol = min(2L, length(views))) +
     ggplot2::labs(
@@ -397,11 +326,11 @@ plot_palettes <- function(
     )
 }
 
-# ---------- 5. Generate grouped colours ----------
+# ---------- Internal helper: generate grouped colours ----------
 # Generates new HCL colours rather than reorganizing a paletteer palette.
 # Reuse the full returned mapping to preserve colours across subsets.
 
-group_palette <- function(
+.generate_groups <- function(
     categories, groups, hues = NULL, luminance = c(45, 80), chroma = 45) {
   categories <- .check_categories(categories)
   groups <- as.character(groups)
@@ -452,7 +381,7 @@ group_palette <- function(
 # ---------- 6. Preview category assignments ----------
 
 plot_palette <- function(
-    colours, groups = NULL, views = "original",
+    colours, groups = NULL, views = c("original", "grayscale"),
     severity = 1, background = "#FFFFFF") {
   stored_groups <- attr(colours, "groups")
   colours <- .check_colours(colours)
@@ -500,7 +429,7 @@ plot_palette <- function(
       data = backgrounds, ggplot2::aes(fill = colour),
       xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, inherit.aes = FALSE
     ) +
-    ggplot2::geom_tile(width = 0.8, height = 0.8) +
+    ggplot2::geom_tile(width = 0.8, height = 0.8, colour = "#888888", linewidth = 0.2) +
     ggplot2::scale_fill_identity() +
     ggplot2::facet_grid(group ~ view, scales = "free_y", space = "free_y") +
     ggplot2::scale_x_continuous(breaks = NULL) +
@@ -541,7 +470,7 @@ export_palette <- function(colours, file = "colour_mapping.csv") {
   utils::write.csv(result, file = file, row.names = FALSE)
   invisible(result)
 }
-# ---------- 8. Nest group shades inside a parent palette ----------
+# ---------- Internal helpers: match shades to parent colours ----------
 # For each group, reads the hue and chroma of the group's parent colour
 # (e.g. the colour assigned to each species), then looks for an existing
 # single-hue sequential palette (paletteer dynamic or discrete) containing
@@ -623,7 +552,7 @@ export_palette <- function(colours, file = "colour_mapping.csv") {
   catalogue
 }
 
-nest_palette <- function(
+.nest_from_parent <- function(
     parent, categories, groups, max_delta_e = 10, max_hue_spread = 20,
     luminance = c(35, 85), sources = c("dynamic", "discrete"),
     background = "#FFFFFF") {
@@ -640,7 +569,7 @@ nest_palette <- function(
   }
   max_delta_e <- .check_threshold(max_delta_e)
   if (!is.numeric(luminance) || length(luminance) != 2L || anyNA(luminance) ||
-      any(luminance < 0 | luminance > 100) || luminance[1] > luminance[2]) {
+      any(!is.finite(luminance)) || any(luminance < 0 | luminance > 100) || luminance[1] > luminance[2]) {
     stop("luminance must be two ordered values between 0 and 100.", call. = FALSE)
   }
   sources <- match.arg(sources, c("dynamic", "discrete"), several.ok = TRUE)
@@ -706,4 +635,57 @@ nest_palette <- function(
   attr(result, "groups") <- stats::setNames(groups, categories)
   attr(result, "report") <- report
   result
+}
+
+# ---------- Nest colours within groups ----------
+# With parent: match existing shades or generate shades from parent colours.
+# Without parent: generate grouped HCL colours using automatic or chosen hues.
+# Both modes return named colours with groups and report attributes.
+
+nest_palette <- function(
+    parent = NULL, categories, groups, hues = NULL, chroma = 45,
+    luminance = c(35, 85), max_delta_e = 10, max_hue_spread = 20,
+    sources = c("dynamic", "discrete"), background = "#FFFFFF") {
+  categories <- .check_categories(categories)
+  groups <- as.character(groups)
+  if (length(groups) != length(categories) || anyNA(groups) ||
+      any(!nzchar(trimws(groups)))) {
+    stop("Supply one non-empty group name for each category.", call. = FALSE)
+  }
+  background <- .check_background(background)
+
+  if (is.null(parent)) {
+    if (!missing(max_delta_e) || !missing(max_hue_spread) || !missing(sources)) {
+      stop("Matching settings require parent colours.", call. = FALSE)
+    }
+    result <- .generate_groups(categories, groups, hues, luminance, chroma)
+    group_names <- unique(groups)
+    # Report parent matching as not applicable for independently generated colours.
+    attr(result, "report") <- data.frame(
+      group = group_names, parent = NA_character_,
+      n = vapply(group_names, function(g) sum(groups == g), integer(1)),
+      hue = NA_real_, chroma = chroma, luminance = NA_real_,
+      method = "generated grouped HCL colours",
+      palette_id = NA_character_, delta_e = NA_real_,
+      row.names = NULL, stringsAsFactors = FALSE
+    )
+    return(result)
+  }
+
+  if (!is.null(hues) || !missing(chroma)) {
+    stop("Use hues and chroma only when parent is omitted.", call. = FALSE)
+  }
+  if (is.null(names(parent)) || anyNA(names(parent)) ||
+      any(!nzchar(trimws(names(parent)))) || anyDuplicated(names(parent))) {
+    stop("parent must have unique, non-empty group names.", call. = FALSE)
+  }
+  max_hue_spread <- .check_threshold(max_hue_spread)
+  if (max_hue_spread > 180) {
+    stop("max_hue_spread must be between 0 and 180 degrees.", call. = FALSE)
+  }
+  .nest_from_parent(
+    parent = parent, categories = categories, groups = groups,
+    max_delta_e = max_delta_e, max_hue_spread = max_hue_spread,
+    luminance = luminance, sources = sources, background = background
+  )
 }
