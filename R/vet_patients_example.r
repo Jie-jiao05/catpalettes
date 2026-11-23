@@ -8,8 +8,11 @@ library(ggplot2)
 
 load("data/vet_patients.rda")  
 head(vet_patients)
-
-
+#about remove one will still function
+#library(dplyr)
+#vet_patients |> group_by(species, breed) |> tally()
+#vet_patients$species[vet_patients$breed == "Poodle"] <- NA
+#vet_patients$breed[vet_patients$breed == "Persian"] <- NA
 # ============================================================
 # STEP 2: Count patients by species and breed
 # These summaries provide the categories and values for our charts.
