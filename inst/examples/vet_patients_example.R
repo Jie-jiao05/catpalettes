@@ -3,10 +3,11 @@
 # Run this code from your project's main folder.
 # ============================================================
 
-source("R/cat_palettes.R")
+library(catpalettes)
 library(ggplot2)
 
-load("data/vet_patients.rda")  
+data("vet_patients", package = "catpalettes")
+
 head(vet_patients)
 #about remove one will still function
 #library(dplyr)
@@ -145,7 +146,7 @@ print(breed_plot)
 # ============================================================
 # STEP 6: Alternatively, generate breed colours without a parent
 # OUR FUNCTION: nest_palette(), WITHOUT parent.
-# This replaces group_palette() and does not use species_colours.
+# Generate related shades within groups without existing parent colours.
 # Omit hues below if you want automatic group hues.
 # ============================================================
 

@@ -1,0 +1,35 @@
+Package: catpalettes
+Title: Colour Palette Selection for Categorical Data
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Shanjie", "Jiao",
+           email = "tallinn.splinter@gmail.com",
+           role = c("aut", "cre")),
+    person("Luna", "Zhang",
+           role = "aut"),
+    person("Tallinn", "Splinter",
+           role = "aut")
+    )
+Description: A toolkit for colouring categorical data. Provides tools
+    for finding palettes with enough colours, assigning colours to
+    categories, and creating related shades for categories within groups.
+    Supports existing parent colours or automatically generated group
+    colours, with grayscale and colour vision deficiency previews.
+    Also includes tools for assessing colour separation and exporting
+    category-colour mappings.
+License: MIT + file LICENSE
+Config/roxygen2/version: 8.1.1
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 3.5.0)
+Imports: 
+    colorspace,
+    ggplot2,
+    grDevices,
+    methods,
+    paletteer,
+    stats,
+    utils
+URL: https://github.com/Jie-jiao05/catpalettes
+BugReports: https://github.com/Jie-jiao05/catpalettes/issues
