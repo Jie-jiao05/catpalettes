@@ -3,12 +3,14 @@ Title: Colour Palette Selection for Categorical Data
 Version: 0.0.0.9000
 Authors@R: c(
     person("Shanjie", "Jiao",
-           email = "tallinn.splinter@gmail.com",
+           email = "",
            role = c("aut", "cre")),
     person("Luna", "Zhang",
-           role = "aut"),
+            email = "",
+           role = c("aut", "cre")),
     person("Tallinn", "Splinter",
-           role = "aut")
+            email = "tallinn.splinter@gmail.com",
+           role = c("aut", "cre"))
     )
 Description: A toolkit for colouring categorical data. Provides tools
     for finding palettes with enough colours, assigning colours to
